@@ -1,0 +1,635 @@
+1. 3 nodes p2p 
+set ns [new Simulator]
+set ntrace [open prog1.tr w]
+$ns trace-all $ntrace
+set namfile [open prog1.nam w]
+$ns namtrace-all $namfile
+proc Finish {} {
+global ns ntrace namfile
+$ns flush-trace
+close $ntrace
+close $namfile
+exec nam prog1.nam &
+exec echo "The number of packets dropped are:" &
+exec grep -c "^d" prog1.tr &
+exit 0
+}
+set n0 [$ns node]
+set n1 [$ns node]
+set n2 [$ns node]
+$ns duplex-link $n0 $n1 0.2Mb 10ms DropTail
+$ns duplex-link $n1 $n2 1Mb 10ms DropTail
+$ns queue-limit $n0 $n1 10
+$ns queue-limit $n1 $n2 10
+set udp [new Agent/UDP]
+$ns attach-agent $n0 $udp
+set null [new Agent/Null]
+$ns attach-agent $n2 $null
+$ns connect $udp $null
+set cbr0 [new Application/Traffic/CBR]
+$cbr0 attach-agent $udp
+$ns at 0.0 "$cbr0 start"
+$ns at 5.0 "Finish"
+$ns run
+
+
+2. 4 pt tcp udp
+set ns [ new Simulator]
+set ntrace [open prog2.tr w]
+$ns trace-all $ntrace
+set namfile [open prog2.nam w]
+$ns namtrace-all $namfile
+proc Finish {} {
+global ns ntrace namfile
+$ns flush-trace
+close $ntrace
+close $namfile
+exec nam prog2.nam &
+exec echo "The number of TCP packets sent are" &
+exec grep "^+" prog2.tr | cut -d " " -f 5 | grep -c "tcp" &
+exec echo "The number of UDP packets sent are" &
+exec grep "^+" prog2.tr | cut -d " " -f 5 | grep -c "cbr" &
+exit 0
+}
+set n0 [$ns node]
+set n1 [$ns node]
+set n2 [$ns node]
+set n3 [$ns node]
+$ns duplex-link $n0 $n2 2Mb 10ms DropTail
+$ns duplex-link $n1 $n2 2Mb 10ms DropTail
+$ns duplex-link $n2 $n3 2Mb 20ms DropTail
+$n0 label "TCP Source"
+$n1 label "UDP Source"
+$n3 label "Destination"
+$n0 color blue
+$n1 color orange
+$n3 color red
+set tcp0 [new Agent/TCP]
+$ns attach-agent $n0 $tcp0
+set sink0 [new Agent/TCPSink]
+$ns attach-agent $n3 $sink0
+$ns connect $tcp0 $sink0
+set udp0 [new Agent/UDP]
+$ns attach-agent $n1 $udp0
+set null0 [new Agent/Null]
+$ns attach-agent $n3 $null0
+$ns connect $udp0 $null0
+set ftp0 [new Application/FTP]
+$ftp0 set type_ FTP
+$ftp0 attach-agent $tcp0
+set cbr0 [new Application/Traffic/CBR]
+$cbr0 set type_ CBR
+$cbr0 set packetSize_ 1000
+$cbr0 set rate_ 0.01Mb
+$cbr0 set random_ false
+$cbr0 attach-agent $udp0
+$ns color 1 magenta
+$ns color 2 green
+$tcp0 set class_ 1
+$udp0 set class_ 2
+$ns at 0.1 "$cbr0 start"
+$ns at 1.5 "$ftp0 start"
+$ns at 1.0 "$cbr0 stop"
+$ns at 2.5 "$ftp0 stop"
+$ns at 5.0 "Finish"
+$ns run
+
+
+3. ethernet LAN
+set ns [new Simulator]
+set trf [open p3.tr w]
+$ns trace-all $trf
+set naf [open p3.nam w]
+$ns namtrace-all $naf
+set n0 [$ns node]
+$n0 color "red"
+$n0 label "Source 1"
+set n1 [$ns node]
+$n1 color "blue"
+$n1 label "Source 2"
+set n2 [$ns node]
+$n2 color "magenta"
+$n2 label "Destination 1"
+set n3 [$ns node]
+$n3 color "green"
+$n3 label "Destination 2"
+set lan [$ns newLan "$n0 $n1 $n2 $n3" 5Mb 10ms LL Queue/DropTail Mac/802_3]
+set tcp [new Agent/TCP]
+$ns attach-agent $n0 $tcp
+set ftp [new Application/FTP]
+$ftp attach-agent $tcp
+set sink [new Agent/TCPSink]
+$ns attach-agent $n2 $sink
+$ns connect $tcp $sink
+set udp [new Agent/UDP]
+$ns attach-agent $n1 $udp
+set cbr [new Application/Traffic/CBR]
+$cbr attach-agent $udp
+set null [new Agent/Null]
+$ns attach-agent $n3 $null
+$ns connect $udp $null
+proc finish {} {
+global ns naf trf
+$ns flush-trace
+exec nam p3.nam &
+close $trf
+close $naf
+exec echo "The number of packet drops due to collision are" &
+exec grep -c "^d" p3.tr &
+exit 0
+}
+$ns at 0.1 "$cbr start"
+$ns at 2.0 "$ftp start"
+$ns at 1.9 "$cbr stop"
+$ns at 4.3 "$ftp stop"
+$ns at 6.0 "finish"
+$ns run
+
+
+4. Ethernet LAN Throughput
+set ns [new Simulator]
+set trf [open prog5.tr w]
+$ns trace-all $trf
+set naf [open prog5.nam w]
+$ns namtrace-all $naf
+set n0 [$ns node]
+set n1 [$ns node]
+set n2 [$ns node]
+set n3 [$ns node]
+set n4 [$ns node]
+set n5 [$ns node]
+set n6 [$ns node]
+set n7 [$ns node]
+set lan [$ns newLan "$n0 $n1 $n2 $n3 $n4 $n5 $n6 $n7" 5Mb 10ms LL Queue/DropTail Channel]
+set tcp [new Agent/TCP]
+$ns attach-agent $n0 $tcp
+set ftp [new Application/FTP]
+$ftp attach-agent $tcp
+set sink [new Agent/TCPSink]
+$ns attach-agent $n7 $sink
+$ns connect $tcp $sink
+set udp [new Agent/UDP]
+$ns attach-agent $n1 $udp
+set cbr [new Application/Traffic/CBR]
+$cbr attach-agent $udp
+set null [new Agent/Null]
+$ns attach-agent $n5 $null
+$ns connect $udp $null
+proc finish {} {
+global ns naf trf
+$ns flush-trace
+exec nam prog5.nam &
+close $trf
+close $naf
+set tcpsize [ exec grep "^r" prog5.tr | grep "tcp" | tail -n 1 | cut -d " " -f 6]
+set numtcp [ exec grep "^r" prog5.tr | grep -c "tcp"]
+set tcptime 2.3
+set udpsize [ exec grep "^r" prog5.tr | grep "cbr" | tail -n 1 | cut -d " " -f 6]
+set numudp [ exec grep "^r" prog5.tr | grep -c "cbr"]
+set udptime 4.0
+puts "The throughput of FTP is"
+puts "[ expr ($numtcp*$tcpsize)/$tcptime] bytes per second"
+puts "The throughput of CBR is"
+puts "[ expr ($numudp*$udpsize)/$udptime] bytes per second"
+exit 0
+}
+$ns at 0.1 "$cbr start"
+$ns at 2.0 "$ftp start"
+$ns at 1.9 "$cbr stop"
+$ns at 4.3 "$ftp stop"
+$ns at 6.0 "finish"
+$ns run
+
+
+5 simple ESS wireless
+set ns [new Simulator]
+set tf [open p5.tr w]
+$ns trace-all $tf
+set topo [new Topography]
+$topo load_flatgrid 1000 1000
+set nf [open p5.nam w]
+$ns namtrace-all-wireless $nf 1000 1000
+$ns node-config -adhocRouting DSDV \
+-llType LL \
+-macType Mac/802_11 \
+-ifqType Queue/DropTail \
+-ifqLen 50 \
+-phyType Phy/WirelessPhy \
+-channelType Channel/WirelessChannel \
+-propType Propagation/TwoRayGround \
+-antType Antenna/OmniAntenna \
+-topoInstance $topo \
+-agentTrace ON \
+-routerTrace ON
+create-god 3 
+set n0 [$ns node]
+set n1 [$ns node]
+set n2 [$ns node]
+$n0 label "tcp0"
+$n1 label "sink1/tcp1"
+$n2 label "sink2"
+$n0 set X_ 50
+$n0 set Y_ 50
+$n0 set Z_ 0
+$n1 set X_ 100
+$n1 set Y_ 100
+$n1 set Z_ 0
+$n2 set X_ 600
+$n2 set Y_ 600
+$n2 set Z_ 0
+$ns at 0.1 "$n0 setdest 50 50 15"
+$ns at 0.1 "$n1 setdest 100 100 25"
+$ns at 0.1 "$n2 setdest 600 600 25"
+set tcp0 [new Agent/TCP]
+$ns attach-agent $n0 $tcp0
+set ftp0 [new Application/FTP]
+$ftp0 attach-agent $tcp0
+set sink1 [new Agent/TCPSink]
+$ns attach-agent $n1 $sink1
+$ns connect $tcp0 $sink1
+set tcp1 [new Agent/TCP]
+$ns attach-agent $n1 $tcp1
+set ftp1 [new Application/FTP]
+$ftp1 attach-agent $tcp1
+set sink2 [new Agent/TCPSink]
+$ns attach-agent $n2 $sink2
+$ns connect $tcp1 $sink2
+$ns at 5 "$ftp0 start"
+$ns at 5 "$ftp1 start"
+$ns at 100 "$n1 setdest 550 550 15"
+$ns at 190 "$n1 setdest 70 70 15"
+proc finish { } {
+global ns nf tf
+$ns flush-trace
+exec nam p5.nam &
+exec awk -f p5.awk p5.tr &
+close $tf
+exit 0
+}
+$ns at 250 "finish"
+$ns run
+AWK Script
+BEGIN{
+count1=0
+count2=0
+pack1=0
+pack2=0
+time1=0
+time2=0
+}
+{
+if($1 == "r" && $3 == "_1_" && $4 == "AGT")
+{
+count1++
+pack1=pack1+$8
+time1=$2
+}
+if($1 == "r" && $3 == "_2_" && $4 =="AGT")
+{
+count2++
+pack2=pack2+$8
+time2=$2
+}
+}
+END{
+printf("\n The Throughput from n0 to n1: %f Mbps \n",
+((count1*pack1*8)/(time1)));
+printf("\n The Throughput from n1 to n2: %f Mbps \n",
+((count2*pack2*8)/(time2)));
+}
+
+
+6. Transmission of ping message
+set ns [new Simulator]
+set ntrace [open p6.tr w]
+$ns trace-all $ntrace
+set namfile [open p6.nam w]
+$ns namtrace-all $namfile
+proc Finish {} {
+global ns ntrace namfile
+$ns flush-trace
+close $ntrace
+close $namfile
+exec nam p6.nam &
+exit 0
+}
+set n0 [$ns node]
+set n1 [$ns node]
+set n2 [$ns node]
+$ns duplex-link $n0 $n1 1Mb 10ms DropTail
+$ns duplex-link $n1 $n2 1Mb 10ms DropTail
+Agent/Ping instproc recv {from rtt} {
+$self instvar node_
+puts "Node $from received ping answer from Node [$node_ id] with Round Trip Time of $rtt 
+ms"
+}
+set p0 [new Agent/Ping]
+$ns attach-agent $n0 $p0
+set p1 [new Agent/Ping]
+$ns attach-agent $n2 $p1
+$ns connect $p0 $p1
+#Schedule events
+$ns at 0.2 "$p0 send"
+$ns at 0.4 "$p1 send"
+$ns at 1.2 "$p0 send"
+$ns at 1.7 "$p1 send"
+$ns at 1.8 "Finish"
+$ns run
+
+7.dynamic routing algo
+set ns [new Simulator]
+$ns rtproto DV
+set nf [open p7.nam w]
+$ns namtrace-all $nf
+proc finish {} {
+global ns nf
+$ns flush-trace
+close $nf
+exec nam p7.nam &
+exit 0
+}
+for {set i 0} {$i < 7} {incr i} {
+set n($i) [$ns node]
+}
+for {set i 0} {$i < 7} {incr i} {
+$ns duplex-link $n($i) $n([expr ($i+1)%7]) 1Mb 10ms DropTail
+}
+
+set udp0 [new Agent/UDP]
+$ns attach-agent $n(0) $udp0
+set cbr0 [new Application/Traffic/CBR]
+$cbr0 set packetSize_ 500
+$cbr0 set interval_ 0.005
+$cbr0 attach-agent $udp0
+set null0 [new Agent/Null]
+$ns attach-agent $n(3) $null0
+$ns connect $udp0 $null0
+
+$ns at 0.5 "$cbr0 start"
+$ns rtmodel-at 1.0 down $n(1) $n(2)
+$ns rtmodel-at 2.0 up $n(1) $n(2)
+$ns at 4.5 "$cbr0 stop"
+$ns at 5.0 "finish"
+$ns run
+
+7 6node dynamic routing algo
+set ns [new Simulator]
+$ns rtproto DV
+set nf [open p7.nam w]
+$ns namtrace-all $nf
+proc finish {} {
+global ns nf
+$ns flush-trace
+close $nf
+exec nam p7.nam &
+exit 0
+}
+for {set i 0} {$i < 7} {incr i} {
+set n($i) [$ns node]
+}
+for {set i 0} {$i < 7} {incr i} {
+$ns duplex-link $n($i) $n([expr ($i+1)%7]) 1Mb 10ms DropTail
+}
+set udp0 [new Agent/UDP]
+$ns attach-agent $n(0) $udp0
+set cbr0 [new Application/Traffic/CBR]
+$cbr0 set packetSize_ 500
+$cbr0 set interval_ 0.005
+$cbr0 attach-agent $udp0
+set null0 [new Agent/Null]
+$ns attach-agent $n(3) $null0
+$ns connect $udp0 $null0
+$ns at 0.5 "$cbr0 start"
+$ns rtmodel-at 1.0 down $n(1) $n(2)
+$ns rtmodel-at 2.0 up $n(1) $n(2)
+$ns at 4.5 "$cbr0 stop"
+$ns at 5.0 "finish"
+$ns run
+
+8. cyclic data transmission UDP protocol
+set ns [new Simulator]
+set nf [open p8.tr w]
+$ns trace-all $nf
+set ntrace [open p8.nam w]
+$ns namtrace-all $ntrace
+for {set i 0} { $i<4 } {incr i} {
+set n($i) [$ns node] }
+for {set i 0} { $i<4 } {incr i} {
+$ns duplex-link $n($i) $n([expr ($i+1)%4]) 1Mb 10ms DropTail }
+set udp [new Agent/UDP]
+set null [new Agent/Null]
+$ns attach-agent $n(0) $udp
+$ns attach-agent $n(1) $null
+$ns connect $udp $null
+set cbr [new Application/Traffic/CBR]
+$cbr set interval_ 0.005
+$cbr set packetSize_ 500
+$cbr attach-agent $udp
+set udp1 [new Agent/UDP]
+set null1 [new Agent/Null]
+$ns attach-agent $n(1) $udp1
+$ns attach-agent $n(2) $null1
+$ns connect $udp1 $null1
+set cbr1 [new Application/Traffic/CBR]
+$cbr1 set interval_ 0.005
+$cbr1 set packetSize_ 500
+$cbr1 attach-agent $udp1
+set udp2 [new Agent/UDP]
+set null2 [new Agent/Null]
+$ns attach-agent $n(2) $udp2
+$ns attach-agent $n(3) $null2
+$ns connect $udp2 $null2
+set cbr2 [new Application/Traffic/CBR]
+$cbr2 set interval_ 0.005
+$cbr2 set packetSize_ 500
+$cbr2 attach-agent $udp2
+set udp3 [new Agent/UDP]
+set null3 [new Agent/Null]
+$ns attach-agent $n(3) $udp3
+$ns attach-agent $n(0) $null3
+$ns connect $udp3 $null3
+set cbr3 [new Application/Traffic/CBR]
+$cbr3 set interval_ 0.005
+$cbr3 set packetSize_ 500
+$cbr3 attach-agent $udp3
+proc Finish { } {
+global ns nf ntrace
+$ns flush-trace
+close $nf
+close $ntrace
+exec nam p8.nam &
+exit 0
+}
+$ns at 0.5 "$cbr start"
+$ns at 4.5 "$cbr stop"
+$ns at 0.5 "$cbr1 start"
+$ns at 4.5 "$cbr1 stop"
+$ns at 0.5 "$cbr2 start"
+$ns at 4.5 "$cbr2 stop"
+$ns at 0.5 "$cbr3 start"
+$ns at 4.5 "$cbr3 stop"
+$ns at 5.0 "Finish"
+$ns run
+
+
+9 error detection code CRC
+#include<stdio.h>
+#include<string.h>
+#define N strlen(g)
+char t[50], cs[50], g[50];
+int a,e,c;
+void xor()
+{
+for(c=1;c<N;c++)
+cs[c]=((cs[c]==g[c])?'0':'1');
+}
+void crc()
+{
+for(e=0;e<N;e++)
+cs[e]=t[e];
+do{
+if(cs[0]=='1')
+xor();
+for(c=0;c<N-1;c++)
+cs[c]=cs[c+1];
+cs[c]=t[e++];
+} while(e<=a+N-1);
+}
+int main(){
+printf("\n Enter the data: ");
+scanf("%s", t);
+printf("\n Enter the generator polynomial: ");
+scanf("%s", g);
+a=strlen(t);
+for(e=a;e<a+N-1;e++)
+t[e]='0';
+printf("\n Modified data is: %s", t);
+crc();
+printf("\n Checksum is: %s", cs);
+for(e=a;e<a+N-1;e++)
+t[e]=cs[e-a];
+printf("\n The final codeword is: %s", t);
+printf("\n Test error detection: 0 for YES and 1 for NO: ");
+scanf("%d", &e);
+if(e==0)
+{ 
+do { 
+printf("\n Enter the position where error is to be inserted: ");
+scanf("%d", &e); 
+} while(e==0||e>a+N-1);
+t[e-1] = (t[e-1]=='0')?'1':'0';
+printf("\n Erroneous data: %s\n",t);
+}
+crc();
+for(e=0; (e<N-1)&&(cs[e]!='1'); e++);
+if(e<N-1)
+printf("\n Error detected \n \n");
+else
+printf("\n No error detected \n \n");
+return 0;
+}
+
+10 Hamming code error
+#include<stdio.h>
+int data[4],encoded[7],edata[7],syn[3];
+int gmatrix[4][7]={{0,1,1,1,0,0,0},{1,0,1,0,1,0,0},{1,1,0,0,0,1,0},{1,1,1,0,0,0,1}};
+int hmatrix[3][7]={{1,0,0,0,1,1,1},{0,1,0,1,0,1,1},{0,0,1,1,1,0,1}};
+int main(){
+int i,j;
+printf("Hamming Code encoding\n");
+printf("Enter the 4 bit data (one by one): \n");
+for(i=0;i<4;i++)scanf("%d",&data[i]);
+printf("Generator Matrix\n");
+for(i=0;i<4;i++){
+for(j=0;j<7;j++){
+printf("%d",gmatrix[i][j]);}
+printf("\n");
+}
+printf("\n\nEncoded data : ");
+for(i=0;i<7;i++){
+for(j=0;j<4;j++)encoded[i]^=(data[j]*gmatrix[j][i]);
+printf("%d",encoded[i]);
+}
+printf("\n\nHamming Code Decoding \n\n");
+printf("Enter the encoded bit receieved (one by one) :\n");
+for(i=0;i<7;i++)scanf("%d",&edata[i]);
+printf("Syndrome = ");
+for(i=0;i<3;i++){
+for(j=0;j<7;j++)syn[i]^=(edata[j]*hmatrix[i][j]);
+printf("%d",syn[i]);
+}
+for(j=0;j<=7;j++)
+if(syn[0]==hmatrix[0][j]&&syn[1]==hmatrix[1][j]&&syn[2]==hmatrix[2][j])break;
+if(j==7)printf("\n\nThe code is error free\n");
+else{
+printf("\n\nError Receieved at bit no %d of the data\n\n",j+1);
+edata[j]=!edata[j];
+printf("The correct data should be : ");
+for(i=0;i<7;i++)printf("%d",edata[i]);
+}
+printf("\n\n");
+return 0;
+}
+
+12. Link state routing protocol
+set ns [new Simulator]
+set namfile [open p12.nam w]
+$ns namtrace-all $namfile
+set tracefile [open p12.tr w]
+$ns trace-all $tracefile
+proc finish {} {
+global ns namfile tracefile
+$ns flush-trace
+close $namfile
+close $tracefile
+exec nam p12.nam &
+exit 0
+}
+set n0 [$ns node]
+set n1 [$ns node]
+set n2 [$ns node]
+set n3 [$ns node]
+set n4 [$ns node]
+$ns duplex-link $n0 $n1 1Mb 10ms DropTail
+$ns duplex-link $n0 $n2 1Mb 10ms DropTail
+$ns duplex-link $n0 $n3 1Mb 10ms DropTail
+$ns duplex-link $n1 $n2 1Mb 10ms DropTail
+$ns duplex-link $n1 $n4 1Mb 10ms DropTail
+$ns duplex-link $n2 $n4 1Mb 10ms DropTail
+$ns duplex-link-op $n0 $n1 orient right
+$ns duplex-link-op $n0 $n2 orient right-down
+$ns duplex-link-op $n0 $n3 orient down
+$ns duplex-link-op $n1 $n2 orient left-down
+$ns duplex-link-op $n1 $n4 orient down
+$ns duplex-link-op $n2 $n4 orient right-down
+set udp0 [new Agent/UDP]
+$ns attach-agent $n0 $udp0
+set cbr0 [new Application/Traffic/CBR]
+$cbr0 set packetSize_ 500
+$cbr0 set interval_ 0.005
+$cbr0 attach-agent $udp0
+set null0 [new Agent/Null]
+$ns attach-agent $n4 $null0
+$ns connect $udp0 $null0
+set udp1 [new Agent/UDP]
+$ns attach-agent $n2 $udp1
+set cbr1 [new Application/Traffic/CBR]
+$cbr1 set packetSize_ 500
+$cbr1 set interval_ 0.005
+$cbr1 attach-agent $udp1
+set null0 [new Agent/Null]
+$ns attach-agent $n4 $null0
+$ns connect $udp1 $null0
+$ns rtproto LS
+$ns rtmodel-at 20.0 down $n1 $n4
+$ns rtmodel-at 23.0 up $n1 $n4
+$ns rtmodel-at 25.0 down $n2 $n4
+$ns rtmodel-at 40.0 up $n2 $n4
+$udp0 set class_ 1
+$udp1 set class_ 2
+$ns color 1 Red
+$ns color 2 Green
+$ns at 1.0 "$cbr0 start"
+$ns at 2.0 "$cbr1 start"
+$ns at 45 "finish"
+$ns run
